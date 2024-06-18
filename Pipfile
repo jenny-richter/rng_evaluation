@@ -1,0 +1,16 @@
+[[source]]
+url = "https://pypi.org/simple"
+verify_ssl = true
+name = "pypi"
+
+[scripts]
+start-download="./src/download.py"
+start-evaluation="./src/evaluation.py"
+
+[packages]
+requests = "*"
+
+[dev-packages]
+
+[requires]
+python_version = "3.11"
