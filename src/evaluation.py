@@ -1,24 +1,16 @@
-#!/usr/bin/env python
-
-import csv
+#!/usr/bin/env python3
 import os
-import random
 import shutil
-import statistics
 import subprocess
-import tkinter as tk
-from tkinter import filedialog
+import random
+import sys
+import time
+from csv_writer_nist_results import process_and_write_results
+from helper import select_directory, load_config
 
-from tools import Tools as tools
+# from csv_writer_nist_results import count_Success_Failure
 
-
-# Funktion zur Auswahl eines Verzeichnisses mittels einer grafischen Benutzeroberfläche
-def select_directory():
-    root = tk.Tk()
-    root.withdraw()
-    return filedialog.askdirectory()
-
-
+# Funktion zur Ausführung eines Befehls zur statistischen Analyse
 def sts(file_path, dir):
     verbose_level = 1
     instance = 1
@@ -27,9 +19,11 @@ def sts(file_path, dir):
     mode = "b"
 
     change_Parameters = "1=20000,2=10,3=9,4=8,5=16,6=1000,7=1073,9=1000000"
+    config = load_config("./configuration/local.yaml")
+    sts_legacy_path = config["paths"]["sts_legacy_fft_directory"]
 
     command = [
-        "/home/jenny/Projekte/rating_system/testing/sts/sts_legacy_fft",
+        sts_legacy_path,
         "-v",
         str(verbose_level),
         "-I",
@@ -63,50 +57,6 @@ def sts(file_path, dir):
         print(f"Datei nicht gefunden Fehler: {e}")
 
 
-# Funktion zur Berechnung des Durchschnitts der Ergebnisse aus mehreren Verzeichnissen
-def calculate_average_of_results(directories, path):
-    res = []
-    base_path = path
-    for dir in directories:
-        result_path = os.path.join(base_path, dir, "results.txt")
-        res.append(calculate_avg_of_results_txt(result_path, str(dir)))
-    return statistics.fmean(res)
-
-
-# Zählt die Anzahl von 'success' und 'failure' in stats.txt Dateien über mehrere Verzeichnisse
-def count_Success_Failure(directories, path):
-    success = 0
-    failure = 0
-    base_path = path
-    for dir in directories:
-        stats_path = os.path.join(base_path, dir, "stats.txt")
-        with open(stats_path, "r") as file:
-            for line in file:
-                success += line.lower().count("success")
-                failure += line.lower().count("failure")
-    return success, failure
-
-
-# Berechnet den Durchschnitt der numerischen Werte in einer results.txt Datei und ignoriert ungültige Zeilen
-def calculate_avg_of_results_txt(path, dir):
-    numbers = []
-    with open(path, "r") as file:
-        for line in file:
-            cleaned_line = line.strip()
-            if cleaned_line.upper() != "__INVALID__":
-                try:
-                    number = float(cleaned_line)
-                    numbers.append(number)
-                except ValueError:
-                    continue
-    if numbers:
-        avg = statistics.fmean(numbers)
-        print(f"{dir} : {avg}")
-        return avg
-    else:
-        return 0.0
-
-
 # Funktion zur Erstellung eines temporären Ordners und Ergebnis-Unterordner darin
 def create_tmp_and_result_folders(base_path=".", tmp_folder_name="tmp"):
     tmp_folder_path = os.path.join(base_path, tmp_folder_name)
@@ -136,51 +86,6 @@ def get_next_result_folder(current_index, base_path=".", tmp_folder_name="tmp"):
             print(f"Error deleting file {file_path}: {e}")
 
     return next_result_folder_path
-
-
-# Schreibt die Analyseergebnisse in eine CSV-Datei, einschließlich Erfolg/Misserfolg Zählungen, Verhältnis, durchschnittlicher p-Wert
-def write_in_to_csv_file(
-    file_path, overall_avg_pvalue, csv_file_path, file_exists, success, failure
-):
-    with open(csv_file_path, mode="a", newline="") as file:
-        writer = csv.writer(file)
-        if not file_exists:
-            writer.writerow(
-                [
-                    "Filename",
-                    "Average P-Value",
-                    "Stars",
-                    "File Size (MB)",
-                    "Testsuite",
-                    "Success",
-                    "Failure",
-                    "Ratio",
-                ]
-            )
-
-    ratio = success / failure if failure != 0 else "undefined"
-    stars = tools.get_stars(overall_avg_pvalue)
-    filename = os.path.basename(file_path)
-    file_size_bytes = os.path.getsize(file_path)
-    file_size_mb = file_size_bytes / (1024**2)
-
-    with open(csv_file_path, mode="a", newline="") as file:
-        writer = csv.writer(file)
-        writer.writerow(
-            [
-                filename,
-                overall_avg_pvalue,
-                stars,
-                round(file_size_mb, 2),
-                "FullNist-C",
-                success,
-                failure,
-                ratio,
-            ]
-        )
-    print(
-        f"For File: {filename}, Overall Average P-Value: {overall_avg_pvalue}, File Size: {round(file_size_mb, 2)} MB"
-    )
 
 
 # Entfernt den temporären Ordner und dessen Inhalte
@@ -214,77 +119,86 @@ def run():
     # Aufruf der Funktion zur Auswahl eines Verzeichnisses durch den Benutzer
     directory_path = select_directory()
 
-    # Liste aller Dateien im ausgewählten Verzeichnis
-    files = os.listdir(directory_path)
+    while True:
+        # Liste aller Dateien im ausgewählten Verzeichnis
+        files = os.listdir(directory_path)
 
-    # Solange wie Dateien im Verzeichnis sind:
-    while files:
-        # Wahl einer zufälligen Datei aus der Liste
-        file_to_test = random.choice(files)
+        # Solange wie Dateien im Verzeichnis sind:
+        while files:
+            # Wahl einer zufälligen Datei aus der Liste
+            file_to_test = random.choice(files)
+            # file_path = os.path.join(directory_path, file_to_test)
 
-        # Verzeichnis für die Ergebnisse erstellen
-        results_directory = os.path.join(directory_path, "results")
-        os.makedirs(results_directory, exist_ok=True)
+            # Verzeichnis für die Ergebnisse erstellen
+            results_directory = os.path.join(directory_path, "results")
+            os.makedirs(results_directory, exist_ok=True)
 
-        # Pfad zur CSV-Datei, in der die Ergebnisse gespeichert werden
-        csv_file_path = os.path.join(
-            results_directory, "results.csv"
-        )  # setzt Pfad zusammen
-        file_exists = os.path.isfile(
-            csv_file_path
-        )  # Übrprüft ob Datei an angebeenem Pfad existiert
+            # Pfad zur CSV-Datei, in der die Ergebnisse gespeichert werden
+            csv_file_path = os.path.join(
+                results_directory, "results.csv"
+            )  # setzt Pfad zusammen
 
-        # Erstellen einer Liste der Binärdateien im Verzeichnis
-        binary_files = [
-            os.path.join(directory_path, f)
-            for f in os.listdir(directory_path)
-            if os.path.isfile(os.path.join(directory_path, f))
-            and f.startswith("response")
-        ]
+            # Erstellen einer Liste der Binärdateien im Verzeichnis
+            binary_files = [
+                os.path.join(directory_path, f)
+                for f in os.listdir(directory_path)
+                if os.path.isfile(os.path.join(directory_path, f))
+                and f.startswith("response")
+            ]
 
-        # Initialisieren des aktuellen Index für die Ergebnisordner
-        current_index = 0
+            # Initialisieren des aktuellen Index für die Ergebnisordner
+            current_index = 0
 
-        # Erstellen temporärer und Ergebnisordner
-        create_tmp_and_result_folders()
+            # Erstellen temporärer und Ergebnisordner
+            create_tmp_and_result_folders()
 
-        # Durchlaufen der Liste der Binärdateien
-        for binary_file in binary_files:
-            # Bestimmen des nächsten Ergebnisordners
-            path = get_next_result_folder(current_index)
+            # Durchlaufen der Liste der Binärdateien
+            for binary_file in binary_files:
+                # Bestimmen des nächsten Ergebnisordners
+                path = get_next_result_folder(current_index)
 
-            # Ausführen der statistischen Tests
-            sts(binary_file, path)
+                # Ausführen der statistischen Tests
+                sts(binary_file, path)
 
-            # Berechnen des Durchschnitts der Ergebnisse
-            avg = calculate_average_of_results(directories, path)
+                # _,failure= count_Success_Failure(directories, path)
 
-            # Zählen der Erfolgs- und Fehlermeldungen
-            success, failure = count_Success_Failure(directories, path)
+                # if (failure>=1):
+                #     sts(binary_file,path)
+                #     print("Zufallszahlen werden ein 2.mal getestet")
 
-            # Ausgabe der Ergebnisse
-            print("All : ", avg)
-            print("Success: ", success, " Failure: ", failure)
+                process_and_write_results(binary_file, directories, path, csv_file_path)
 
-            # Schreiben der Ergebnisse in die CSV-Datei
-            write_in_to_csv_file(
-                binary_file, avg, csv_file_path, file_exists, success, failure
+                # Erhöhen des aktuellen Indexes, mit Zyklisierung
+                current_index = current_index + 1
+                if current_index > 10:
+                    current_index = 0
+
+                # Löschen der Binärdatei nach dem Test
+                os.remove(binary_file)
+
+            # Entfernen der getesteten Datei aus der Liste
+            files.remove(file_to_test)
+
+        # Aufräumen der temporären Ordner und Dateien
+        clean_up()
+
+        print(
+            "Verarbeitung abgeschlossen drücke Str+C um das Programm zu beenden, um noch weitere Zufallszahlen zu testen mache nichts"
+        )
+        try:
+            print(
+                "Das Programm wartet 1 Minute und schaut dann nochmal nach neuen zu tetstenden Zufallszahlen"
             )
+            time.sleep(60)
 
-            # Erhöhen des aktuellen Indexes, mit Zyklisierung
-            current_index = current_index + 1
-            if current_index > 10:
-                current_index = 0
-
-            # Löschen der Binärdatei nach dem Test
-            os.remove(binary_file)
-
-        # Entfernen der getesteten Datei aus der Liste
-        files.remove(file_to_test)
-
-    # Aufräumen der temporären Ordner und Dateien
-    clean_up()
+        except KeyboardInterrupt:
+            print("\n Programm wird beendet...")
+            sys.exit(0)
 
 
 if __name__ == "__main__":
-    run()
+    try:
+        run()
+    except KeyboardInterrupt:
+        print("\n Programm wird beendet")
+        sys.exixt(0)

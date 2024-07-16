@@ -1,1 +1,5 @@
-results_directory: "./results"
+paths:
+  results_directory: "./results"
+  download_directory: "~/testing"
+  testing_directory: "~/testing"
+  sts_legacy_fft_directory: "~/sts/sts_legacy_fft"

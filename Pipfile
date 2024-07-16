@@ -5,10 +5,12 @@ name = "pypi"
 
 [scripts]
 start-download="./src/download.py"
-start-evaluation="./src/evaluation.py"
+start-evaluation="./src/evaluation.
 
 [packages]
 requests = "*"
+python-crontab = "*"
+pyyaml = "*"
 
 [dev-packages]
 

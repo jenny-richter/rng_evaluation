@@ -1,20 +1,11 @@
 #!/usr/bin/env python
 
 import os
-import tkinter as tk
-from tkinter import filedialog
-
 import requests
+import file_counter
+from helper import load_config
 
-
-# Funktion zur Auswahl eines Verzeichnisses mittels einer grafischen Benutzeroberfläche
-def select_directory():
-    root = tk.Tk()
-    root.withdraw()
-    return filedialog.askdirectory()
-
-
-def download_random_numbers(directory_path, num_files=2):
+def download_random_numbers(directory_path):
     os.chdir(directory_path)
 
     for i in range(num_files):
@@ -26,11 +17,21 @@ def download_random_numbers(directory_path, num_files=2):
             print(f"File {file_name} downloaded successfully.")
         else:
             print(f"Failed to download file {i}. Status code: {response.status_code}")
+    response = requests.get("http://localhost")
+    i = file_counter.increment()
+    if response.status_code == 200:
+        file_name = f"response{i}.bin"  # generate file name
+        with open(file_name, "wb") as file:
+            file.write(response.content)
+        print(f"File {file_name} downloaded successfully.")
+    else:
+        print(f"Failed to download file {i}. Status code: {response.status_code}")
 
 
 def main():
-    directory_path = select_directory()
+    config = load_config("~/Projekte/python/rng_evaluation/configuration/local.yaml")
 
+    directory_path = config["paths"]["download_directory"]
     # Herunterladen der Zufallszahlen in das ausgewählte Verzeichnis
     download_random_numbers(directory_path)
 
