@@ -6,11 +6,10 @@ import random
 import sys
 import time
 from csv_writer_nist_results import process_and_write_results
-from helper import select_directory, load_config
+from helper import load_config
 
-# from csv_writer_nist_results import count_Success_Failure
 
-# Funktion zur Ausführung eines Befehls zur statistischen Analyse
+# funktion to execute a command for statistical analysis
 def sts(file_path, dir):
     verbose_level = 1
     instance = 1
@@ -40,24 +39,24 @@ def sts(file_path, dir):
         file_path,
     ]
 
-    # Debugging-Informationen
-    print("Aktuelles Arbeitsverzeichnis:", os.getcwd())
+    # debugging information
+    print("current working directory:", os.getcwd())
     full_command_path = os.path.abspath(command[0])
-    print("Vollständiger Pfad zu sts_legacy_fft:", full_command_path)
+    print("complete path to sts_legacy_fft:", full_command_path)
 
     if not os.path.exists(full_command_path):
-        print(f"Ausführbare Datei nicht gefunden: {full_command_path}")
+        print(f"executable file not found:{full_command_path}")
         return
 
     try:
         subprocess.run(command, check=True)
     except subprocess.CalledProcessError as e:
-        print(f"Fehler beim Ausführen des Befehls: {e}")
+        print(f"error executing the command:{e}")
     except FileNotFoundError as e:
-        print(f"Datei nicht gefunden Fehler: {e}")
+        print(f"file not found error: {e}")
 
 
-# Funktion zur Erstellung eines temporären Ordners und Ergebnis-Unterordner darin
+# creating a temporary folder and a result subfolder
 def create_tmp_and_result_folders(base_path=".", tmp_folder_name="tmp"):
     tmp_folder_path = os.path.join(base_path, tmp_folder_name)
     if not os.path.exists(tmp_folder_path):
@@ -68,13 +67,13 @@ def create_tmp_and_result_folders(base_path=".", tmp_folder_name="tmp"):
             os.makedirs(result_folder_path)
 
 
-# Bestimmt den nächsten Ergebnisordner, der verwendet werden soll, zyklisch durch eine Menge von Ordnern
+# cyclically determines the next result folder to be used
 def get_next_result_folder(current_index, base_path=".", tmp_folder_name="tmp"):
     tmp_folder_path = os.path.join(base_path, tmp_folder_name)
     next_index = (current_index % 10) + 1
     next_result_folder_path = os.path.join(tmp_folder_path, f"result_{next_index}")
 
-    # Bereinigen des nächsten Ergebnisordners, indem dessen Inhalt entfernt wird
+    # clean up the next result folder by removing its contents
     for filename in os.listdir(next_result_folder_path):
         file_path = os.path.join(next_result_folder_path, filename)
         try:
@@ -88,16 +87,16 @@ def get_next_result_folder(current_index, base_path=".", tmp_folder_name="tmp"):
     return next_result_folder_path
 
 
-# Entfernt den temporären Ordner und dessen Inhalte
+# remove temporary folder and its contents
 def clean_up(base_path=".", tmp_folder_name="tmp"):
     tmp_folder_path = os.path.join(base_path, tmp_folder_name)
     if os.path.exists(tmp_folder_path):
         shutil.rmtree(tmp_folder_path)
 
 
-# Hauptfunktion zur Orchestrierung des Analyseprozesses
+# main funktion
 def run():
-    # Definieren einer Liste von Verzeichnisnamen, die spezifische Tests darstellen
+    # define a list of directory names that represent specific tests
     directories = [
         "Serial",
         "Runs",
@@ -116,29 +115,27 @@ def run():
         "OverlappingTemplate",
     ]
 
-    # Aufruf der Funktion zur Auswahl eines Verzeichnisses durch den Benutzer
-    directory_path = select_directory()
+    config = load_config(
+        "/home/jenny/Projekte/python/rng_evaluation/configuration/local.yaml"
+    )
+    directory_path = config["paths"]["testing_directory"]
 
     while True:
-        # Liste aller Dateien im ausgewählten Verzeichnis
+        # list all files in the directory
         files = os.listdir(directory_path)
 
-        # Solange wie Dateien im Verzeichnis sind:
         while files:
-            # Wahl einer zufälligen Datei aus der Liste
+            # choice a random file from the list
             file_to_test = random.choice(files)
-            # file_path = os.path.join(directory_path, file_to_test)
 
-            # Verzeichnis für die Ergebnisse erstellen
+            # create directory for results
             results_directory = os.path.join(directory_path, "results")
             os.makedirs(results_directory, exist_ok=True)
 
-            # Pfad zur CSV-Datei, in der die Ergebnisse gespeichert werden
-            csv_file_path = os.path.join(
-                results_directory, "results.csv"
-            )  # setzt Pfad zusammen
+            # path to results CSV file
+            csv_file_path = os.path.join(results_directory, "results.csv")
 
-            # Erstellen einer Liste der Binärdateien im Verzeichnis
+            # create a list of binaryfiles in the directory
             binary_files = [
                 os.path.join(directory_path, f)
                 for f in os.listdir(directory_path)
@@ -146,53 +143,46 @@ def run():
                 and f.startswith("response")
             ]
 
-            # Initialisieren des aktuellen Index für die Ergebnisordner
+            # Initialize the current index for the result folders
             current_index = 0
 
-            # Erstellen temporärer und Ergebnisordner
             create_tmp_and_result_folders()
 
-            # Durchlaufen der Liste der Binärdateien
+            # run trough the list of binary files
             for binary_file in binary_files:
-                # Bestimmen des nächsten Ergebnisordners
                 path = get_next_result_folder(current_index)
-
-                # Ausführen der statistischen Tests
                 sts(binary_file, path)
 
-                # _,failure= count_Success_Failure(directories, path)
-
-                # if (failure>=1):
-                #     sts(binary_file,path)
-                #     print("Zufallszahlen werden ein 2.mal getestet")
-
+                # write csv-file
                 process_and_write_results(binary_file, directories, path, csv_file_path)
 
-                # Erhöhen des aktuellen Indexes, mit Zyklisierung
+                # increment the current index with cyclization
                 current_index = current_index + 1
                 if current_index > 10:
                     current_index = 0
 
-                # Löschen der Binärdatei nach dem Test
+                # remove binary file after testing
                 os.remove(binary_file)
 
-            # Entfernen der getesteten Datei aus der Liste
+            # remove the tested file from the list
             files.remove(file_to_test)
 
-        # Aufräumen der temporären Ordner und Dateien
+        # clean up temporary folders and files
         clean_up()
 
         print(
-            "Verarbeitung abgeschlossen drücke Str+C um das Programm zu beenden, um noch weitere Zufallszahlen zu testen mache nichts"
+            "Processing completed. Press CTRL+C to exit the programm. To test more random numers, do nothing"
         )
+
         try:
+            selected_time = 120
             print(
-                "Das Programm wartet 1 Minute und schaut dann nochmal nach neuen zu tetstenden Zufallszahlen"
+                f"The program waits {selected_time/60}  minute(s) and then check again for new random numbers to be tested."
             )
-            time.sleep(60)
+            time.sleep(selected_time)
 
         except KeyboardInterrupt:
-            print("\n Programm wird beendet...")
+            print("\n Program is terminated")
             sys.exit(0)
 
 
@@ -200,5 +190,5 @@ if __name__ == "__main__":
     try:
         run()
     except KeyboardInterrupt:
-        print("\n Programm wird beendet")
+        print("\n Program is terminated")
         sys.exixt(0)

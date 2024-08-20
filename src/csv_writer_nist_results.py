@@ -16,12 +16,12 @@ def count_success_failure(directories, path):
     return success, failure
 
 
-def write_results_to_csv(file_path, csv_file_path, file_exists, success, failure, total_tests, passed_tests_summary, failed_tests_summary ):
+def write_results_to_csv(file_path, csv_file_path, file_exists, success, failure):
     with open(csv_file_path, mode="a", newline="") as file:
         writer = csv.writer(file)
         if not file_exists:
             writer.writerow(
-                ["Filename", "Final result", "File Size (MB)", "Sucsess", "Failure", "total_tests","passed_tests", "failed_tests_summary", "passed_test_summerary"]
+                ["Filename", "Final result", "File Size (MB)", "Success", "Failure"]
             )
 
     filename = os.path.basename(file_path)

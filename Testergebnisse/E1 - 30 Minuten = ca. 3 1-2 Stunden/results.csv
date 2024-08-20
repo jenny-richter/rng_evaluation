@@ -1,0 +1,7 @@
+Filename,Final result,File Size (MB),Success,Failure
+response1.bin,not random,8192.0,332874,4534
+response2.bin,not random,8192.0,333430,4524
+response3.bin,not random,8192.0,331694,4466
+response4.bin,not random,8192.0,332181,4499
+response5.bin,not random,8192.0,332670,4582
+response6.bin,not random,8192.0,332662,4304
