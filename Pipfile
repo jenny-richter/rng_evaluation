@@ -5,7 +5,7 @@ name = "pypi"
 
 [scripts]
 start-download="./src/download.py"
-start-evaluation="./src/evaluation.
+start-evaluation="./src/evaluation.py"
 
 [packages]
 requests = "*"
