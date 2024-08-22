@@ -164,5 +164,6 @@ cython_debug/
 ## Project-specific ignores
 
 counter.txt
+Daten.txt
 testing
 tmp
